@@ -38,13 +38,74 @@ NIXPKGS_ALLOW_UNFREE=1 nix build --impure .#context-mode
 NIXPKGS_ALLOW_UNFREE=1 nix run --impure .#context-mode
 ```
 
+## Install as an MCP Server
+
+If you agree to the ELv2 license for the packaged upstream `context-mode`
+subproject, you can use a location-independent launcher in MCP clients
+instead of relying on a locally installed `context-mode` binary:
+
+```bash
+env NIXPKGS_ALLOW_UNFREE=1 nix run --impure github:Xyhlon/context-mode-nix --
+```
+
+Security note: `github:Xyhlon/context-mode-nix` is an unpinned flake reference.
+It tracks this repository's moving default branch, so future `nix run` invocations
+can pick up newer commits automatically. Only use this if you trust the
+maintainer, or audit the repo yourself and pin it to a specific revision or
+lock it through your own flake configuration.
+
+### Codex
+
+```bash
+codex mcp add context-mode -- env NIXPKGS_ALLOW_UNFREE=1 nix run --impure github:Xyhlon/context-mode-nix --
+```
+
+Or add the server directly to `~/.codex/config.toml`:
+
+```toml
+[mcp_servers.context_mode]
+command = "env"
+args = [
+  "NIXPKGS_ALLOW_UNFREE=1",
+  "nix",
+  "run",
+  "--impure",
+  "github:Xyhlon/context-mode-nix",
+  "--",
+]
+```
+
+### OpenCode
+
+Add the server to `opencode.json` or `opencode.jsonc`:
+
+```jsonc
+{
+  "$schema": "https://opencode.ai/config.json",
+  "mcp": {
+    "context-mode": {
+      "type": "local",
+      "command": [
+        "env",
+        "NIXPKGS_ALLOW_UNFREE=1",
+        "nix",
+        "run",
+        "--impure",
+        "github:Xyhlon/context-mode-nix",
+        "--"
+      ]
+    }
+  }
+}
+```
+
 ## Downstream Overlay Example
 
 ```nix
 {
   inputs = {
     nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
-    context-mode-nix.url = "github:mksglu/context-mode-nix";
+    context-mode-nix.url = "github:Xyhlon/context-mode-nix";
   };
 
   outputs = { nixpkgs, context-mode-nix, ... }:
