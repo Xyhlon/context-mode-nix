@@ -36,6 +36,37 @@
           packages.default = context-mode;
           packages.context-mode = context-mode;
 
+          checks.runtime-node-modules = pkgs.runCommand "context-mode-runtime-node-modules" { } ''
+            root="${context-mode}/lib/context-mode/node_modules"
+
+            for path in \
+              "$root/@modelcontextprotocol/sdk" \
+              "$root/better-sqlite3" \
+              "$root/turndown" \
+              "$root/turndown-plugin-gfm" \
+              "$root/@mixmark-io/domino"
+            do
+              if [ ! -e "$path" ]; then
+                echo "missing runtime dependency: $path" >&2
+                exit 1
+              fi
+            done
+
+            for path in \
+              "$root/esbuild" \
+              "$root/lightningcss" \
+              "$root/@esbuild" \
+              "$root/@rolldown"
+            do
+              if [ -e "$path" ]; then
+                echo "unexpected dev dependency: $path" >&2
+                exit 1
+              fi
+            done
+
+            mkdir -p "$out"
+          '';
+
           apps = {
             default = {
               type = "app";

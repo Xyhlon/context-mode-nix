@@ -32,6 +32,7 @@ stdenvNoCC.mkDerivation (finalAttrs: {
 
     nativeBuildInputs = [
       bun
+      nodejs
       cacert
       writableTmpDirAsHomeHook
     ];
@@ -48,8 +49,100 @@ stdenvNoCC.mkDerivation (finalAttrs: {
       export BUN_INSTALL_CACHE_DIR=$(mktemp -d)
       bun install \
         --frozen-lockfile \
+        --omit dev \
         --ignore-scripts \
         --no-progress
+
+      # Bun still materializes dev-only packages for this lockfile, so trim
+      # the installed tree down to packages reachable from runtime deps only.
+      node <<'EOF'
+      const fs = require("node:fs");
+      const path = require("node:path");
+
+      const rootDir = process.cwd();
+      const nodeModulesDir = path.join(rootDir, "node_modules");
+      const rootPkg = JSON.parse(fs.readFileSync(path.join(rootDir, "package.json"), "utf8"));
+      const keep = new Set();
+      const queue = [];
+
+      function resolvePackage(name, fromDir) {
+        let currentDir = fromDir;
+        const parts = name.split("/");
+
+        while (true) {
+          const candidate = path.join(currentDir, "node_modules", ...parts);
+          if (fs.existsSync(candidate)) {
+            return fs.realpathSync(candidate);
+          }
+
+          const parentDir = path.dirname(currentDir);
+          if (parentDir === currentDir) {
+            return null;
+          }
+          currentDir = parentDir;
+        }
+      }
+
+      function enqueueRuntimeDeps(pkg, fromDir) {
+        const deps = {
+          ...(pkg.dependencies ?? {}),
+          ...(pkg.optionalDependencies ?? {}),
+          ...(pkg.peerDependencies ?? {}),
+        };
+
+        for (const depName of Object.keys(deps)) {
+          const resolved = resolvePackage(depName, fromDir);
+          if (resolved !== null) {
+            queue.push(resolved);
+          }
+        }
+      }
+
+      enqueueRuntimeDeps(rootPkg, rootDir);
+
+      while (queue.length > 0) {
+        const pkgDir = queue.pop();
+        if (keep.has(pkgDir)) {
+          continue;
+        }
+
+        keep.add(pkgDir);
+
+        const pkgJsonPath = path.join(pkgDir, "package.json");
+        if (!fs.existsSync(pkgJsonPath)) {
+          continue;
+        }
+
+        const pkg = JSON.parse(fs.readFileSync(pkgJsonPath, "utf8"));
+        enqueueRuntimeDeps(pkg, pkgDir);
+      }
+
+      fs.rmSync(path.join(nodeModulesDir, ".bin"), { force: true, recursive: true });
+
+      for (const entry of fs.readdirSync(nodeModulesDir, { withFileTypes: true })) {
+        if (entry.name.startsWith("@")) {
+          const scopeDir = path.join(nodeModulesDir, entry.name);
+          for (const scopedEntry of fs.readdirSync(scopeDir, { withFileTypes: true })) {
+            const scopedPath = path.join(scopeDir, scopedEntry.name);
+            const resolved = fs.realpathSync(scopedPath);
+            if (!keep.has(resolved)) {
+              fs.rmSync(scopedPath, { force: true, recursive: true });
+            }
+          }
+
+          if (fs.readdirSync(scopeDir).length == 0) {
+            fs.rmdirSync(scopeDir);
+          }
+          continue;
+        }
+
+        const entryPath = path.join(nodeModulesDir, entry.name);
+        const resolved = fs.realpathSync(entryPath);
+        if (!keep.has(resolved)) {
+          fs.rmSync(entryPath, { force: true, recursive: true });
+        }
+      }
+      EOF
       runHook postBuild
     '';
 
@@ -61,7 +154,7 @@ stdenvNoCC.mkDerivation (finalAttrs: {
     '';
 
     dontFixup = true;
-    outputHash = "sha256-R0iREbU/o4tf6OojvDzBkEVWQAXb5IwHFYX4g50CZ/8=";
+    outputHash = "sha256-cA757aKHj2LLdyd4c/kEA1ts5SpBUv+1aeZ6lW6x7+A=";
     outputHashAlgo = "sha256";
     outputHashMode = "recursive";
   };
@@ -130,4 +223,3 @@ stdenvNoCC.mkDerivation (finalAttrs: {
     platforms = lib.platforms.unix;
   };
 })
-
