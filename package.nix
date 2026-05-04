@@ -14,13 +14,13 @@
 
 stdenvNoCC.mkDerivation (finalAttrs: {
   pname = "context-mode";
-  version = "1.0.103";
+  version = "1.0.111";
 
   src = fetchFromGitHub {
     owner = "mksglu";
     repo = "context-mode";
     tag = "v${finalAttrs.version}";
-    hash = "sha256-Yv0rQITaESPqcxCB73NNynFpQkkFB0qTx4aTvsE9/xE=";
+    hash = "sha256-mj6SY5o1Kcie2NRullBAxKKWU10b0TVZ/Y19DfOrUrs=";
   };
 
   # The upstream lockfile is `bun.lock`, so we pre-populate `node_modules`
