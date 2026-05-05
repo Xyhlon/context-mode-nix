@@ -33,6 +33,16 @@
           context-mode = mkContextMode pkgs;
         in
         {
+          _module.args.pkgs = import inputs.nixpkgs {
+            inherit system;
+            overlays = [ overlay ];
+
+            config.allowUnfreePredicate =
+              pkg:
+              builtins.elem (inputs.nixpkgs.lib.getName pkg) [
+                "context-mode"
+              ];
+          };
           packages.default = context-mode;
           packages.context-mode = context-mode;
 
@@ -80,12 +90,13 @@
             };
           };
 
-          formatter = pkgs.nixfmt-tree;
+          formatter = pkgs.nixfmt;
 
           devShells.default = pkgs.mkShell {
             packages = with pkgs; [
               nil
-              nixfmt-tree
+              statix
+              nixfmt
               statix
             ];
           };
