@@ -196,9 +196,9 @@ stdenvNoCC.mkDerivation (finalAttrs: {
 
     chmod +x "$libDir/cli.bundle.mjs" "$libDir/server.bundle.mjs" "$libDir/start.mjs"
 
-    makeBinaryWrapper ${lib.getExe nodejs} "$out/bin/context-mode" \
+    makeBinaryWrapper ${lib.getExe bun} "$out/bin/context-mode" \
       --add-flags "$libDir/cli.bundle.mjs" \
-      --prefix PATH : ${lib.makeBinPath ([ nodejs ] ++ runtimePackages)}
+      --prefix PATH : ${lib.makeBinPath ([ bun nodejs ] ++ runtimePackages)}
 
     runHook postInstall
   '';
